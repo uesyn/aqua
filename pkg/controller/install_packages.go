@@ -20,6 +20,12 @@ func (ctrl *Controller) installPackages(ctx context.Context, cfg *Config, regist
 			"package_version": pkg.Version,
 			"registry":        pkg.Registry,
 		})
+
+		if !pkg.Condition.Match() {
+			logE.Debug("skip install")
+			continue
+		}
+
 		pkgInfo, err := getPkgInfoFromRegistries(registries, pkg)
 		if err != nil {
 			logerr.WithError(logE, err).Error("install the package")
@@ -62,6 +68,11 @@ func (ctrl *Controller) installPackages(ctx context.Context, cfg *Config, regist
 	}
 
 	for _, pkg := range cfg.Packages {
+		if !pkg.Condition.Match() {
+			wg.Done()
+			continue
+		}
+
 		go func(pkg *Package) {
 			defer wg.Done()
 			maxInstallChan <- struct{}{}

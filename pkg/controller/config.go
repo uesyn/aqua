@@ -16,10 +16,11 @@ import (
 )
 
 type Package struct {
-	Name     string `validate:"required"`
-	Registry string `validate:"required" yaml:",omitempty"`
-	Version  string `validate:"required" yaml:",omitempty"`
-	Import   string `yaml:",omitempty"`
+	Name      string     `validate:"required"`
+	Registry  string     `validate:"required" yaml:",omitempty"`
+	Version   string     `validate:"required" yaml:",omitempty"`
+	Import    string     `yaml:",omitempty"`
+	Condition *Condition `yaml:",omitempty"`
 }
 
 func (pkg *Package) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -49,6 +50,70 @@ func parseNameWithVersion(name string) (string, string) {
 		return name, ""
 	}
 	return name[:idx], name[idx+1:]
+}
+
+type Condition struct {
+	On       []ConditionSpec `yaml:",omitempty"`
+	Ignoring []ConditionSpec `yaml:",omitempty"`
+}
+
+type ConditionSpec struct {
+	GOOS   string `yaml:"GOOS,omitempty"`
+	GOARCH string `yaml:"GOARCH,omitempty"`
+}
+
+func (c *Condition) Match() bool {
+	return c.match(runtime.GOOS, runtime.GOARCH)
+}
+
+func (c *Condition) match(goos, goarch string) bool {
+	if c == nil {
+		return true
+	}
+
+	if c.On != nil {
+		for _, on := range c.On {
+			if on.GOOS != "" && on.GOARCH != "" &&
+				on.GOOS == goos &&
+				on.GOARCH == goarch {
+				return true
+			}
+
+			if on.GOOS != "" && on.GOARCH == "" &&
+				on.GOOS == goos {
+				return true
+			}
+
+			if on.GOOS == "" && on.GOARCH != "" &&
+				on.GOARCH == goarch {
+				return true
+			}
+		}
+		return false
+	}
+
+	if c.Ignoring != nil {
+		for _, ignoring := range c.Ignoring {
+			if ignoring.GOOS != "" && ignoring.GOARCH != "" &&
+				ignoring.GOOS == goos &&
+				ignoring.GOARCH == goarch {
+				return false
+			}
+
+			if ignoring.GOOS != "" && ignoring.GOARCH == "" &&
+				ignoring.GOOS == goos {
+				return false
+			}
+
+			if ignoring.GOOS == "" && ignoring.GOARCH != "" &&
+				ignoring.GOARCH == goarch {
+				return false
+			}
+		}
+		return true
+	}
+
+	return true
 }
 
 type Config struct {
